@@ -1,9 +1,10 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/dbConnect.js";
+import { resetPassword } from "../controllers/authController.js";
 
 const generateId = (length = 32) => {
   const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz!@#$%^&*()_{}?><,./';[]=-";
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz!@#$%&*";
   let result = "";
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -51,6 +52,21 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationToken: {
+      type: String,
+      allowNull: true,
+    },
+    verificationTokenExpires: {
+      type: Date,
+      allowNull: true,
+    },
+
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
   },
   {
     timestamps: true,

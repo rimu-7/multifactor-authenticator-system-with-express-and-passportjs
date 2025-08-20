@@ -1,6 +1,8 @@
 import express from "express";
 import passport from "passport";
 import {register, login, authStatus, resetPassword, logout, setup2FA, reset2FA, verify2FA, require2FA} from "../controllers/authController.js";
+import { verifyEmail } from "../../utils/verifyEmail.js";
+import { forgotPassword } from "../../utils/forgotPassword.js";
 
 
 const router = express.Router();
@@ -15,6 +17,8 @@ router.get("/status", authStatus);
 router.post("/logout", logout);
 //reset password
 router.post("/reset-password", resetPassword);
+router.post("/forgot-password", forgotPassword);
+router.post("/verify-email", verifyEmail);
 
 //2FA setup
 router.post("/2fa/setup", (req, res, next) => {

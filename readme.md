@@ -13,17 +13,18 @@ A secure **Authentication System** built with **Node.js**, **Express**, **Passpo
 - RESTful API endpoints for authentication and user management
 - Database integration using **Sequelize ORM** with **MySQL**
 
-
-## Upcoming Features
-
 - **Email Verification**  
   Users will receive a verification email after registration to confirm their email address.
 - **Forgot Password / Password Reset via Email**  
   Users will be able to reset their password through a secure link sent to their registered email.
-- **Enhanced Security**  
-  Additional measures such as rate limiting, account lockout on multiple failed logins, and improved session handling.
+
+
+
+### Upcodimg Features
 - **FrontEnd**
   Implement a robust and responsive frontend website with react.js for a better expriences. 
+- **Enhanced Security**  
+  Additional measures such as rate limiting, account lockout on multiple failed logins, and improved session handling.
 
 ---
 
@@ -77,7 +78,12 @@ CREATE TABLE users (
     isMfaActive TINYINT(1) DEFAULT 0,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    twoFactorSecret VARCHAR(255)
+    twoFactorSecret VARCHAR(255),
+    isVerified` TINYINT(1) DEFAULT 0,
+    resetPasswordToken VARCHAR(255) DEFAULT NULL,
+    resetPasswordExpires DATETIME DEFAULT NULL,
+    verificationToken VARCHAR(255) DEFAULT NULL,
+    verificationTokenExpires DATETIME DEFAULT NULL,
 );
 ```
 
@@ -128,11 +134,6 @@ Server will run on `http://localhost:4500`.
 ---
 
 
-![routes](./image/routes.png)
-![hashed password](./image/hashedPassword.png)
-![passport-config for login](./image/passport-config.png)
-![2FA code Generator](./image/setup2FA.png)
-![Verify 2FA](./image/verify2fa.png)
 
 
 ## Contributing & Open Source
@@ -161,8 +162,31 @@ Your contributions help make this project better for the community! 💪
 
 This project was **created with love** by [Your GitHub Username](https://github.com/your-github-username).  
 
-If you find this project useful and would like to support me, you can **donate via PayPal**: [PayPal Link](https://www.paypal.me/rimumutasim)
+## Support Me
+
+If you find this project useful and would like to support me, you can **donate via PayPal**: 
+
+[![PayPal](https://www.paypalobjects.com/webstatic/icon/pp258.png)](https://www.paypal.me/rimumutasim)
 
 Thank you for your support! 🙏
 
 ---
+
+
+
+- routes
+![routes](./image/routes.png)
+
+- hashed password
+![hashed password](./image/hashedPassword.png)
+
+- passport-config for login
+![passport-config for login](./image/passport-config.png)
+- 2FA code Generator
+![2FA code Generator](./image/setup2FA.png)
+
+-Verify 2FA
+![Verify 2FA](./image/verify2fa.png)
+
+- Email notification for after register email verification, login, reset/forgot-password, verify 2fa & reset 2fa
+![Email notification for after register email verification, login, reset/forgot-password, verify 2fa & reset 2fa](./image/email-verification.png)

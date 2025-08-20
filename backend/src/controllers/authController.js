@@ -1,11 +1,17 @@
 import bcrypt from "bcryptjs";
 import User from "../models/userSchema.js";
-import speakeasy from "speakeasy";
+import speakeasy, { generateSecret } from "speakeasy";
 import qrCode from "qrcode";
 import jwt from "jsonwebtoken";
 import { Op } from "sequelize";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer";
+import { generateTokenAndSetCookie } from "../../utils/generateTokenAndSetCookie.js";
 dotenv.config();
+
+
+
+//----------------------------------------------------------------------
 
 // Middleware to check if 2FA is verified
 export const require2FA = (req, res, next) => {
@@ -14,6 +20,16 @@ export const require2FA = (req, res, next) => {
   }
   next();
 };
+
+
+
+
+
+
+//----------------------------------------------------------------------
+
+
+//User register
 
 export const register = async (req, res) => {
   try {
@@ -30,7 +46,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: "Invalid email format" });
     }
 
-    // Password strength validation (min 8 chars, at least one number and one letter)
+    // Password strength validation
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
@@ -38,6 +54,10 @@ export const register = async (req, res) => {
           "Password must be at least 8 characters long and contain at least one letter and one number",
       });
     }
+
+    const verificationToken = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -59,12 +79,39 @@ export const register = async (req, res) => {
       username,
       email,
       password: hashedPassword,
+      verificationToken,
+      verificationTokenExpires: new Date(Date.now() + 3600000),
       isMfaActive: false,
       twoFactorSecret: null,
     });
 
     await user.save();
-    res.status(201).json({ message: `User registered successfully`, user });
+
+    generateTokenAndSetCookie(res, user.id);
+
+    // Send email with verification code
+    const transporter = nodemailer.createTransport({
+      service: "gmail", 
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"MyApp" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "Verify your email",
+      text: `Your verification code is: ${verificationToken}`,
+    });
+
+    res.status(201).json({
+      message: `User registered successfully`,
+      user: {
+        ...user,
+        password: null,
+      },
+    });
   } catch (error) {
     console.error("Registration error:", error);
     res.status(500).json({
@@ -74,14 +121,53 @@ export const register = async (req, res) => {
   }
 };
 
+
+
+//----------------------------------------------------------------------
+
+//User login
 export const login = async (req, res) => {
   try {
+    if (!req.user.isVerified) {
+      return res.status(403).json({ error: "Please verify your email first" });
+    }
+
     console.log(`Authenticated user: ${req.user.username}`);
 
     // Reset 2FA verification status on new login
     if (req.session) {
       req.session.twoFactorVerified = false;
     }
+
+    const user = await User.findByPk(req.user.id);
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail", // or SMTP settings
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Security Team" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "New Login Notification",
+      html: `
+        <h2>Hello ${user.firstName || "User"},</h2>
+        <p>A new login was detected on your account.</p>
+        <p><b>Details:</b></p>
+        <ul>
+          <li><b>Username:</b> ${user.username}</li>
+          <li><b>Time:</b> ${new Date().toLocaleString()}</li>
+          <li><b>IP Address:</b> ${req.ip || "Unknown"}</li>
+        </ul>
+        <p>If this was <b>not you</b>, please change your password immediately.</p>
+        <br/>
+        <p>Stay safe,</p>
+        <p><b>Your App Security Team</b></p>
+      `,
+    });
 
     res.status(200).json({
       message: "User logged in successfully",
@@ -98,6 +184,12 @@ export const login = async (req, res) => {
   }
 };
 
+
+
+
+//----------------------------------------------------------------------
+
+//User auth Status
 export const authStatus = async (req, res) => {
   try {
     if (req.user) {
@@ -126,6 +218,9 @@ export const authStatus = async (req, res) => {
 };
 
 
+//----------------------------------------------------------------------
+
+// Reset password
 export const resetPassword = async (req, res) => {
   try {
     if (!req.user) {
@@ -164,6 +259,11 @@ export const resetPassword = async (req, res) => {
 };
 
 
+
+//----------------------------------------------------------------------
+//User Logout
+
+
 export const logout = async (req, res) => {
   try {
     if (!req.user) {
@@ -199,6 +299,12 @@ export const logout = async (req, res) => {
   }
 };
 
+
+
+//----------------------------------------------------------------------
+
+//2FA setup
+
 export const setup2FA = async (req, res) => {
   try {
     if (!req.user) {
@@ -207,7 +313,7 @@ export const setup2FA = async (req, res) => {
 
     // Generate secret with otpauth URL
     const secret = speakeasy.generateSecret({
-      name: `MyApp (${req.user.username})`, // shown in Google Authenticator
+      name: `MyApp (${req.user.username})`,
       issuer: "ki r bolbo",
     });
 
@@ -221,7 +327,7 @@ export const setup2FA = async (req, res) => {
     );
 
     // Use the otpauth_url directly (don’t rebuild)
-    const qrCodeDataUrl = await qrCode.toDataURL(secret.otpauth_url);
+    const qrCodeDataUrl = qrCode.toDataURL(secret.otpauth_url);
 
     res.status(200).json({
       message: "2FA setup successfully",
@@ -237,6 +343,10 @@ export const setup2FA = async (req, res) => {
   }
 };
 
+
+//----------------------------------------------------------------------
+
+// Verify 2FA
 export const verify2FA = async (req, res) => {
   try {
     const { token } = req.body;
@@ -258,27 +368,36 @@ export const verify2FA = async (req, res) => {
       secret: user.twoFactorSecret,
       encoding: "base32",
       token,
-      window: 1, // smaller window = more secure, 1 = ±30s tolerance
+      window: 1, // ±30s tolerance
     });
 
     if (verified) {
       req.session.twoFactorVerified = true;
       if (req.session.save) await req.session.save();
 
-      res.status(200).json({
+      // (Optional) Send confirmation email
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"MyApp" <${process.env.EMAIL_USER}>`,
+        to: user.email,
+        subject: "2FA Verification Successful",
+        html: `<p>Your 2FA verification was successful!</p>`,
+      });
+
+      return res.status(200).json({
         message: "2FA verification successful",
         verified: true,
       });
     } else {
-      // Debug helper (can disable later)
-      const currentToken = speakeasy.totp({
-        secret: user.twoFactorSecret,
-        encoding: "base32",
-      });
-      console.log("Expected token:", currentToken, "Received:", token);
-
-      res.status(400).json({
-        error: "Invalid 2FA token",
+      return res.status(400).json({
+        message: "2FA verification failed. Invalid token.",
         verified: false,
       });
     }
@@ -291,6 +410,13 @@ export const verify2FA = async (req, res) => {
   }
 };
 
+
+
+
+
+//----------------------------------------------------------------------
+
+// Reset 2FA
 export const reset2FA = async (req, res) => {
   try {
     if (!req.user) {
@@ -307,12 +433,12 @@ export const reset2FA = async (req, res) => {
 
     let verified = false;
 
-    // Option 1: Already verified in session
+    //Already verified in session
     if (req.session?.twoFactorVerified) {
       verified = true;
     }
 
-    // Option 2: Verify fresh token if provided
+    //Verify fresh token if provided
     if (token) {
       verified = speakeasy.totp.verify({
         secret: user.twoFactorSecret,
@@ -336,7 +462,30 @@ export const reset2FA = async (req, res) => {
 
     if (req.session) req.session.twoFactorVerified = false;
 
-    res.status(200).json({ message: "2FA reset successfully" });
+    // --- Send Email Notification ---
+    const transporter = nodemailer.createTransport({
+      service: "gmail", // or "Outlook365", "Yahoo", or use SMTP settings
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Security Team" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "2FA Reset Notification",
+      html: `
+        <h2>Hello ${user.firstName || "User"},</h2>
+        <p>Your Two-Factor Authentication (2FA) has been <b>reset</b> on your account.</p>
+        <p>If this was <b>not you</b>, please reset your password immediately and contact support.</p>
+        <br/>
+        <p>Stay safe,</p>
+        <p><b>Your App Security Team</b></p>
+      `,
+    });
+
+    res.status(200).json({ message: "2FA reset successfully and email sent" });
   } catch (error) {
     console.error("2FA Reset Error:", error);
     res.status(500).json({
