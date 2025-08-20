@@ -14,14 +14,12 @@ const app = express();
 
 // Test and connect to DB
 (async () => {
-	try {
-		await sequelize.authenticate();
-		console.log("✅ Connected to MySQL");
-		await sequelize.sync(); // Optional: sync models automatically
-		console.log("✅ Models synced");
-	} catch (error) {
-		console.error("❌ Unable to connect to DB:", error);
-	}
+  try {
+    await sequelize.sync(); // update table without dropping
+    console.log("✅ Database synced successfully");
+  } catch (error) {
+    console.error("❌ Sync error:", error);
+  }
 })();
 
 

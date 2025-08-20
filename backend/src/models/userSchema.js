@@ -1,59 +1,61 @@
-// models/User.js
-import {DataTypes} from "sequelize";
-import sequelize from "../config/dbConnect.js"; // import the sequelize instance
+import { DataTypes } from "sequelize";
+import sequelize from "../config/dbConnect.js";
 
 const generateId = (length = 32) => {
-	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz!@#$%^&*()_{}?><,./';[]=-";
-	let result = "";
-	for (let i = 0; i < length; i++) {
-		result += chars.charAt(Math.floor(Math.random() * chars.length));
-	}
-	return result;
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz!@#$%^&*()_{}?><,./';[]=-";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 };
 
-
 const User = sequelize.define(
-	"User",
-	{
-		id: {
-			type: DataTypes.STRING(32),
-			primaryKey: true,
-			allowNull: false,
-			unique: true,
-			defaultValue: generateId,
-		},
-		firstName: {
-			type: String,
-			required: true,
-		},
-		lastName: {
-			type: String,
-			required: true,
-		},
-		username: {
-			type: DataTypes.STRING,
-			allowNull: false,
-		},
-		email: {
-			type: String,
-			required: true,
-		},
-		
-		password: {
-			type: DataTypes.STRING,
-			allowNull: false,
-		},
-		isMfaActive: {
-			type: DataTypes.BOOLEAN,
-			defaultValue: false,
-		},
-		twoFactor: {
-			type: DataTypes.STRING,
-		},
-	},
-	{
-		timestamps: true, // createdAt & updatedAt
-	}
+  "User",
+  {
+    id: {
+      type: DataTypes.STRING(64),
+      primaryKey: true,
+      allowNull: false,
+      defaultValue: () => generateId(32),
+    },
+    firstName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    lastName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    username: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: { isEmail: true },
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    isMfaActive: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    twoFactorSecret: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+  },
+  {
+    timestamps: true,
+    tableName: "users",
+  }
 );
 
 export default User;
